@@ -13,10 +13,12 @@ async function run() {
     
     console.log('Leyendo y procesando imagen PNG...');
     const image = await Jimp.read(pngPath);
+    // Asegurarse de que sea cuadrada (256x256) para cumplir con el formato ICO
+    image.resize({ w: 256, h: 256 });
     // Asegurarse de que esté en formato PNG correcto
     const pngBuffer = await image.getBuffer('image/png');
     fs.writeFileSync(pngPath, pngBuffer);
-    console.log('Imagen lista como PNG real.');
+    console.log('Imagen lista como PNG real cuadrado (256x256).');
 
     console.log('Convirtiendo PNG a ICO...');
     const buf = await pngToIco(pngPath);
