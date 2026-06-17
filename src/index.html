@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOTEAL - Workspace de Notas Interactivas</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Google Fonts & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Barra Lateral (Sidebar) -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-section">
+          <span class="material-symbols-outlined logo-icon">description</span>
+          <div>
+            <h1>NOTEAL</h1>
+            <span>Notas & Proyectos</span>
+          </div>
+        </div>
+        <button class="btn-icon" id="btn-new-project" title="Nuevo Proyecto">
+          <span class="material-symbols-outlined">create_new_folder</span>
+        </button>
+      </div>
+
+      <!-- Selector de Módulo (Notas vs Tareas) -->
+      <div class="module-switcher" style="display: flex; gap: 8px; padding: 0 16px 12px 16px; border-bottom: 1px solid var(--border-color);">
+        <button class="btn-premium" id="tab-notes" style="flex: 1; padding: 6px 12px; font-size: 0.82rem; border-radius: 6px; gap: 4px;">
+          <span class="material-symbols-outlined" style="font-size: 1rem;">description</span> Notas
+        </button>
+        <button class="btn-premium btn-secondary" id="tab-tasks" style="flex: 1; padding: 6px 12px; font-size: 0.82rem; border-radius: 6px; gap: 4px;">
+          <span class="material-symbols-outlined" style="font-size: 1rem;">playlist_add_check</span> Tareas
+        </button>
+      </div>
+
+      <!-- Buscador -->
+      <div class="search-box">
+        <span class="material-symbols-outlined search-icon">search</span>
+        <input type="text" id="search-input" placeholder="Buscar notas...">
+      </div>
+
+      <!-- Árbol de Carpetas y Notas -->
+      <div class="notes-tree" id="notes-tree-container">
+        <!-- Renderizado dinámico desde renderer.js -->
+        <div class="tree-section-header">Proyectos</div>
+        <div id="projects-list"></div>
+
+        <div class="tree-section-header" style="margin-top: 15px;">Notas Principales</div>
+        <div id="global-notes-list"></div>
+      </div>
+
+      <!-- Footer de Sidebar -->
+      <div class="sidebar-footer">
+        <button class="btn-icon" id="btn-new-global-note" title="Nueva Nota Principal">
+          <span class="material-symbols-outlined">add_box</span> Nueva Nota
+        </button>
+        
+        <button class="btn-icon" id="btn-repositories-trigger" title="Gestor de Repositorios (Bóvedas)">
+          <span class="material-symbols-outlined">database</span>
+        </button>
+        
+        <button class="btn-icon" id="btn-settings-trigger" title="Ajustes">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Área de Trabajo Principal -->
+    <main class="workspace" id="workspace-container">
+      
+      <!-- Detalle de la Nota Activa (Header) -->
+      <div class="workspace-header hidden" id="active-note-header">
+        <div class="active-note-title-box">
+          <span class="material-symbols-outlined" id="active-note-icon">edit_note</span>
+          <input type="text" id="active-note-title-input" placeholder="Título de la nota...">
+        </div>
+
+        <div class="workspace-actions">
+          <button class="btn-icon" id="btn-pin-note" title="Fijar nota flotante (Picture-in-Picture)">
+            <span class="material-symbols-outlined">push_pin</span>
+          </button>
+          <button class="btn-icon" id="btn-view-toggle" title="Cambiar Vista (Editor / Split / Preview)">
+            <span class="material-symbols-outlined" id="view-toggle-icon">vertical_split</span>
+          </button>
+          <button class="btn-premium btn-secondary" id="btn-export-note" title="Exportar Nota a Escritorio">
+            <span class="material-symbols-outlined">download</span> Exportar .MD
+          </button>
+          <button class="btn-premium" id="btn-save-note">
+            <span class="material-symbols-outlined">save</span> Guardar
+          </button>
+        </div>
+      </div>
+
+      <!-- Editor Split Screen -->
+      <div class="editor-panel hidden" id="editor-split-panel">
+        <div class="editor-pane" id="pane-editor">
+          <textarea id="markdown-editor" placeholder="Empieza a escribir en Markdown... 
+
+# Título Principal
+## Subtítulo
+- [ ] Tarea pendiente
+- [x] Tarea completada
+
+| Columna 1 | Columna 2 |
+| --------- | --------- |
+| Dato 1    | Dato 2    |
+"></textarea>
+          <div class="markdown-toolbar">
+            <button class="btn-toolbar" data-template="# Título" title="Título 1">H1</button>
+            <button class="btn-toolbar" data-template="## Subtítulo" title="Título 2">H2</button>
+            <button class="btn-toolbar" data-template="**Texto**" title="Negrita">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">format_bold</span>
+            </button>
+            <button class="btn-toolbar" data-template="*Texto*" title="Cursiva">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">format_italic</span>
+            </button>
+            <button class="btn-toolbar" data-template="- [ ] Tarea pendiente" title="Lista de Tareas">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">playlist_add_check</span>
+            </button>
+            <button class="btn-toolbar" data-template="| Columna 1 | Columna 2 |\n| --------- | --------- |\n| Dato 1    | Dato 2    |" title="Tabla">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">table_chart</span>
+            </button>
+            <button class="btn-toolbar" data-template="```javascript\n// Código aquí\n```" title="Bloque de Código">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">code</span>
+            </button>
+          </div>
+        </div>
+        <div class="preview-pane" id="pane-preview">
+          <div class="markdown-body" id="markdown-preview-container"></div>
+        </div>
+      </div>
+
+      <!-- Vista Vacía (Cuando no hay nota seleccionada) -->
+      <div class="empty-workspace" id="empty-state">
+        <span class="material-symbols-outlined empty-icon">folder_open</span>
+        <h2>NOTEAL Workspace</h2>
+        <p>Selecciona una nota existente o crea una nueva para comenzar a escribir.</p>
+      </div>
+
+    </main>
+
+    <!-- Área de Trabajo Principal - Gestor de Tareas -->
+    <main class="workspace hidden" id="tasks-workspace-container" style="background: transparent;">
+      <div class="workspace-header">
+        <div class="active-note-title-box">
+          <span class="material-symbols-outlined" style="color: var(--color-secondary);">playlist_add_check</span>
+          <h2 style="font-size: 1.2rem; font-weight: 700;">Gestor de Tareas Centralizado</h2>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <label for="tasks-filter-project" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Filtrar:</label>
+            <select id="tasks-filter-project" style="padding: 6px 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); outline: none; font-size: 0.85rem;">
+              <option value="all">Todos los proyectos</option>
+              <option value="none">Sin Proyecto</option>
+            </select>
+          </div>
+          <button class="btn-premium btn-secondary hidden" id="btn-add-status" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; gap: 4px;">
+            <span class="material-symbols-outlined" style="font-size: 1rem;">playlist_add</span> Agregar Estado
+          </button>
+          <div class="task-stats" id="task-stats-summary" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">
+            Pendientes: 0 | Completadas: 0
+          </div>
+        </div>
+      </div>
+
+      <!-- Añadir Tarea -->
+      <div class="task-creator-box glass-card" style="margin: 24px; padding: 20px;">
+        <h4 style="margin-bottom: 12px; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; font-weight: 700;">Crear Nueva Tarea</h4>
+        <div class="task-input-row" style="display: flex; gap: 12px; align-items: center;">
+          <input type="text" id="task-title-input" placeholder="¿Qué hay que hacer?" style="flex: 2; padding: 10px 14px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); outline: none;">
+          
+          <select id="task-project-select" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); outline: none;">
+            <option value="">Nota Principal (Sin Proyecto)</option>
+          </select>
+          
+          <select id="task-priority-select" style="width: 120px; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); outline: none;">
+            <option value="low">Baja</option>
+            <option value="medium" selected>Media</option>
+            <option value="high">Alta</option>
+          </select>
+
+          <button class="btn-premium" id="btn-add-task">
+            <span class="material-symbols-outlined" style="font-size:1.1rem;">add</span> Agregar
+          </button>
+        </div>
+      </div>
+
+      <!-- Columnas de Tareas Dinámicas -->
+      <div id="tasks-columns-container" style="flex: 1; margin: 0 24px 24px 24px; display: flex; gap: 20px; overflow-x: auto; overflow-y: hidden; height: calc(100% - 180px); padding-bottom: 10px;">
+        <!-- Se renderizan dinámicamente -->
+      </div>
+    </main>
+
+    <!-- Pantalla de Bloqueo por Contraseña (Lock Screen) -->
+    <div class="lock-screen hidden" id="lock-screen-overlay">
+      <div class="lock-container">
+        <span class="material-symbols-outlined lock-icon">lock</span>
+        <h2>NOTEAL Bloqueado</h2>
+        <p>Esta bóveda de notas está cifrada de forma segura. Ingrese su contraseña para descifrarla.</p>
+        
+        <div class="lock-input-box">
+          <input type="password" id="lock-password-input" placeholder="Contraseña...">
+          <div class="lock-error" id="lock-error-message"></div>
+          <button class="btn-premium" id="btn-unlock-vault">
+            <span class="material-symbols-outlined">key</span> Desbloquear Bóveda
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Configuración (Settings Modal) -->
+    <div class="modal-overlay hidden" id="settings-modal-overlay">
+      <div class="settings-modal">
+        <div class="modal-header">
+          <h3>Ajustes de NOTEAL</h3>
+          <button class="btn-icon" id="btn-close-settings">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Motor de Almacenamiento -->
+          <div class="setting-group">
+            <label for="settings-engine">Motor de Almacenamiento</label>
+            <select id="settings-engine">
+              <option value="local_json">Local: Archivo JSON único (storage.json)</option>
+              <option value="local_db">Local: Base de Datos Embebida (noteal_database.db)</option>
+              <option value="online_db">Online: API REST en Línea (Sincronización Cloud)</option>
+              <option value="postgres">PostgreSQL / Supabase (Conexión Directa)</option>
+            </select>
+          </div>
+
+          <!-- Carpeta de Almacenamiento -->
+          <div class="setting-group" id="settings-path-group">
+            <label for="settings-custom-path">Carpeta de Almacenamiento</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="settings-custom-path" placeholder="Por defecto (Bóveda Interna)" style="flex: 1;" readonly>
+              <button class="btn-premium btn-secondary" id="btn-settings-select-path" style="padding: 10px;" type="button">
+                <span class="material-symbols-outlined">folder_open</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Configuración API Online -->
+          <div class="online-db-config hidden" id="online-db-fields">
+            <div class="setting-group">
+              <label for="settings-online-url">Endpoint URL del API</label>
+              <input type="text" id="settings-online-url" placeholder="https://miapi.com/notes-endpoint">
+            </div>
+            <div class="setting-group">
+              <label for="settings-online-token">Token de Portador (Bearer Token - Opcional)</label>
+              <input type="password" id="settings-online-token" placeholder="Bearer eyJhbGciOi...">
+            </div>
+          </div>
+
+          <!-- Configuración PostgreSQL -->
+          <div class="online-db-config hidden" id="postgres-db-fields" style="background: hsla(222, 30%, 4%, 0.15); padding: 14px; border-radius: 8px; border: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+            <div class="setting-group">
+              <label for="settings-pg-host">Host / Servidor</label>
+              <input type="text" id="settings-pg-host" placeholder="db.supabase.co o localhost">
+            </div>
+            <div class="setting-group" style="display: flex; gap: 12px;">
+              <div style="flex: 1;">
+                <label for="settings-pg-port">Puerto</label>
+                <input type="number" id="settings-pg-port" value="5432">
+              </div>
+              <div style="flex: 2;">
+                <label for="settings-pg-db">Base de Datos</label>
+                <input type="text" id="settings-pg-db" placeholder="postgres">
+              </div>
+            </div>
+            <div class="setting-group">
+              <label for="settings-pg-user">Usuario</label>
+              <input type="text" id="settings-pg-user" placeholder="postgres">
+            </div>
+            <div class="setting-group">
+              <label for="settings-pg-password">Contraseña</label>
+              <input type="password" id="settings-pg-password" placeholder="Contraseña de la base de datos...">
+            </div>
+            <div class="setting-group" style="display: flex; gap: 12px; align-items: center;">
+              <div style="flex: 2;">
+                <label for="settings-pg-table">Nombre de Tabla</label>
+                <input type="text" id="settings-pg-table" value="noteal_vault">
+              </div>
+              <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding-top: 18px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size: 0.8rem; font-weight: 600;">
+                  <input type="checkbox" id="settings-pg-ssl" checked> SSL
+                </label>
+              </div>
+            </div>
+            <button class="btn-premium btn-secondary" id="btn-test-pg-connection" type="button" style="padding: 10px; font-size: 0.8rem; border-radius: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">database</span> Probar Conexión PostgreSQL
+            </button>
+          </div>
+
+          <!-- Seguridad por Contraseña -->
+          <div class="setting-group" style="margin-top: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none;">
+              <input type="checkbox" id="settings-encrypt-checkbox">
+              Habilitar Protección por Contraseña y Cifrado AES-256
+            </label>
+          </div>
+
+          <!-- Campos de Contraseña -->
+          <div class="online-db-config hidden" id="crypto-fields">
+            <div class="setting-group">
+              <label for="settings-password">Nueva Contraseña</label>
+              <input type="password" id="settings-password" placeholder="Mínimo 4 caracteres...">
+            </div>
+            <div class="setting-group">
+              <label for="settings-password-confirm">Confirmar Contraseña</label>
+              <input type="password" id="settings-password-confirm" placeholder="Confirmar...">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-premium btn-secondary" id="btn-cancel-settings">Cancelar</button>
+          <button class="btn-premium" id="btn-save-settings">Guardar Ajustes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Asistente de Configuración Inicial (Onboarding Wizard) -->
+    <div class="lock-screen hidden" id="setup-wizard-overlay" style="background: rgba(5, 8, 20, 0.95); z-index: 99999;">
+      <div class="lock-container" style="max-width: 500px; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+          <span class="material-symbols-outlined" style="font-size: 2.2rem; color: var(--color-secondary);">rocket_launch</span>
+          <div>
+            <h2 style="font-size: 1.4rem; font-weight: 800;">Bienvenido a NOTEAL</h2>
+            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Configuración Inicial</span>
+          </div>
+        </div>
+
+        <p style="font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; color: var(--text-muted);">Configure sus preferencias de almacenamiento y seguridad para la base de datos de notas y tareas.</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Paso 1: Motor de Almacenamiento -->
+          <div class="setting-group">
+            <label for="wizard-engine">Método de Almacenamiento</label>
+            <select id="wizard-engine" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+              <option value="local_json">Local: Archivo JSON (storage.json)</option>
+              <option value="local_db">Local: Base de Datos Embebida (noteal_database.db)</option>
+              <option value="online_db">Online: API REST en Línea (Cloud Sync)</option>
+              <option value="postgres">PostgreSQL / Supabase (Conexión Directa)</option>
+            </select>
+          </div>
+
+          <!-- Carpeta de Almacenamiento -->
+          <div class="setting-group" id="wizard-path-group">
+            <label for="wizard-custom-path">Carpeta de Almacenamiento</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="wizard-custom-path" placeholder="Por defecto (Bóveda Interna)" style="flex: 1; color: var(--text-main); background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;" readonly>
+              <button class="btn-premium btn-secondary" id="btn-wizard-select-path" style="padding: 10px;" type="button">
+                <span class="material-symbols-outlined">folder_open</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Campos Online -->
+          <div class="online-db-config hidden" id="wizard-online-fields" style="background: hsla(222, 30%, 4%, 0.3); padding: 12px; border-radius: 8px; border: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 8px;">
+            <div class="setting-group">
+              <label for="wizard-online-url">Endpoint URL del API</label>
+              <input type="text" id="wizard-online-url" placeholder="https://miapi.com/notes-endpoint" style="color: var(--text-main);">
+            </div>
+            <div class="setting-group">
+              <label for="wizard-online-token">Token de Acceso (Opcional)</label>
+              <input type="password" id="wizard-online-token" placeholder="Bearer eyJhbGciOi..." style="color: var(--text-main);">
+            </div>
+          </div>
+
+          <!-- Campos PostgreSQL Wizard -->
+          <div class="online-db-config hidden" id="wizard-postgres-fields" style="background: hsla(222, 30%, 4%, 0.3); padding: 12px; border-radius: 8px; border: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 8px;">
+            <div class="setting-group">
+              <label for="wizard-pg-host">Host / Servidor</label>
+              <input type="text" id="wizard-pg-host" placeholder="db.supabase.co o localhost" style="color: var(--text-main);">
+            </div>
+            <div class="setting-group" style="display: flex; gap: 12px;">
+              <div style="flex: 1;">
+                <label for="wizard-pg-port">Puerto</label>
+                <input type="number" id="wizard-pg-port" value="5432" style="color: var(--text-main);">
+              </div>
+              <div style="flex: 2;">
+                <label for="wizard-pg-db">Base de Datos</label>
+                <input type="text" id="wizard-pg-db" placeholder="postgres" style="color: var(--text-main);">
+              </div>
+            </div>
+            <div class="setting-group">
+              <label for="wizard-pg-user">Usuario</label>
+              <input type="text" id="wizard-pg-user" placeholder="postgres" style="color: var(--text-main);">
+            </div>
+            <div class="setting-group">
+              <label for="wizard-pg-password">Contraseña</label>
+              <input type="password" id="wizard-pg-password" placeholder="Contraseña de la base de datos..." style="color: var(--text-main);">
+            </div>
+            <div class="setting-group" style="display: flex; gap: 12px; align-items: center;">
+              <div style="flex: 2;">
+                <label for="wizard-pg-table">Tabla</label>
+                <input type="text" id="wizard-pg-table" value="noteal_vault" style="color: var(--text-main);">
+              </div>
+              <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding-top: 18px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size: 0.8rem; font-weight: 600;">
+                  <input type="checkbox" id="wizard-pg-ssl" checked> SSL
+                </label>
+              </div>
+            </div>
+            <button class="btn-premium btn-secondary" id="btn-wizard-test-pg" type="button" style="padding: 10px; font-size: 0.8rem; border-radius: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">database</span> Probar Conexión
+            </button>
+          </div>
+
+          <!-- Paso 2: Seguridad -->
+          <div class="setting-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none;">
+              <input type="checkbox" id="wizard-encrypt-checkbox">
+              Habilitar Protección por Contraseña y Cifrado AES-256
+            </label>
+          </div>
+
+          <!-- Campos Contraseña -->
+          <div class="online-db-config hidden" id="wizard-crypto-fields" style="background: hsla(222, 30%, 4%, 0.3); padding: 12px; border-radius: 8px; border: 1px dashed var(--border-color); display: flex; flex-direction: column; gap: 8px;">
+            <div class="setting-group">
+              <label for="wizard-password">Crear Contraseña</label>
+              <input type="password" id="wizard-password" placeholder="Mínimo 4 caracteres..." style="color: var(--text-main);">
+            </div>
+            <div class="setting-group">
+              <label for="wizard-password-confirm">Confirmar Contraseña</label>
+              <input type="password" id="wizard-password-confirm" placeholder="Confirmar..." style="color: var(--text-main);">
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+          <button class="btn-premium" id="btn-wizard-submit" style="width: 100%; padding: 12px;">
+            <span class="material-symbols-outlined">done_all</span> Finalizar y Comenzar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Diálogo Personalizado (Alert/Confirm Premium) -->
+    <div class="modal-overlay hidden" id="custom-dialog-overlay" style="z-index: 100000; background: rgba(5, 8, 20, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+      <div class="lock-container" style="max-width: 400px; padding: 28px; text-align: center; display: flex; flex-direction: column; gap: 16px;">
+        <span class="material-symbols-outlined" id="dialog-icon" style="font-size: 3.5rem; color: var(--color-accent);">info</span>
+        <h3 id="dialog-title" style="font-size: 1.25rem; font-weight: 700;">Confirmar Acción</h3>
+        <p id="dialog-message" style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px;"></p>
+        <input type="text" id="dialog-input" style="width: 100%; padding: 10px 14px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); outline: none; margin-bottom: 8px;" class="hidden" placeholder="Escribe aquí...">
+        <div style="display: flex; gap: 12px; justify-content: center; width: 100%;">
+          <button class="btn-premium btn-secondary" id="btn-dialog-cancel" style="flex: 1; padding: 10px;">Cancelar</button>
+          <button class="btn-premium" id="btn-dialog-confirm" style="flex: 1; padding: 10px;">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Repositorios (Repository Switcher Modal) -->
+    <div class="modal-overlay hidden" id="repositories-modal-overlay">
+      <div class="settings-modal" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3>Gestor de Repositorios (Bóvedas)</h3>
+          <button class="btn-icon" id="btn-close-repositories">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.4;">
+            Administra tus repositorios de notas y tareas independientes. Puedes cambiar de repositorio, crear uno nuevo o conectar con bases de datos externas como PostgreSQL/Supabase.
+          </p>
+          
+          <!-- Lista de Repositorios -->
+          <div class="setting-group">
+            <label style="margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; color: var(--text-muted);">Tus Repositorios Activos</label>
+            <div id="repositories-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 8px; background: var(--bg-input);">
+              <!-- Se renderizan dinámicamente -->
+            </div>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+          <!-- Crear Nuevo Repositorio -->
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.05em;">Registrar Nuevo Repositorio</h4>
+            
+            <div class="setting-group">
+              <label for="new-repo-name">Nombre del Repositorio</label>
+              <input type="text" id="new-repo-name" placeholder="Ej. Trabajo, Universidad, Supabase Cloud...">
+            </div>
+
+            <div class="setting-group">
+              <label for="new-repo-engine">Método de Almacenamiento</label>
+              <select id="new-repo-engine">
+                <option value="local_json" selected>Local: Archivo JSON (storage.json)</option>
+                <option value="local_db">Local: Base de Datos Embebida (noteal_database.db)</option>
+                <option value="online_db">Online: API REST en Línea (Cloud Sync)</option>
+                <option value="postgres">PostgreSQL / Supabase (Conexión Directa)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-premium btn-secondary" id="btn-cancel-repositories">Cerrar</button>
+          <button class="btn-premium" id="btn-create-repo-submit">Crear Repositorio</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script defer src="storage.js"></script>
+  <script defer src="renderer.js"></script>
+</body>
+</html>
