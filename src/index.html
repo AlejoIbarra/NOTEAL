@@ -512,7 +512,7 @@
     </div>
     <!-- Modal de Edición/Creación de Tarea (Task Details/Create Modal) -->
     <div class="modal-overlay hidden" id="task-modal-overlay" style="z-index: 100001; background: rgba(5, 8, 20, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-      <div class="settings-modal" style="max-width: 900px; width: 90vw;">
+      <div class="settings-modal task-details-modal">
         <div class="modal-header">
           <h3 id="task-modal-header-title">Detalles de la Tarea</h3>
           <button class="btn-icon" id="btn-close-task-modal">
@@ -520,7 +520,7 @@
           </button>
         </div>
 
-        <div class="modal-body" style="display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 20px;">
+        <div class="modal-body task-details-body">
           <!-- Columna Izquierda: Metadatos -->
           <div style="display: flex; flex-direction: column; gap: 20px; border-right: 1px solid var(--border-color); padding-right: 24px;">
             
@@ -597,7 +597,7 @@
                 <span>Descripción (Markdown)</span>
                 <span style="font-size: 0.72rem; text-transform: none; font-weight: 500; color: var(--text-muted);">Editor a la izquierda | Vista Previa a la derecha</span>
               </label>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 320px;">
+              <div class="editor-split-grid">
                 <textarea id="task-modal-desc" placeholder="Detalles en Markdown sobre esta tarea..." style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-family: var(--font-mono); font-size: 0.85rem; outline: none; resize: none;"></textarea>
                 <div id="task-modal-desc-preview" class="markdown-body" style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: hsla(222, 30%, 4%, 0.25); border: 1px solid var(--border-color); overflow-y: auto; font-size: 0.9rem; user-select: text;"></div>
               </div>

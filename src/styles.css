@@ -972,4 +972,81 @@ button, input, textarea, select {
   min-height: 50px;
 }
 
+/* --- Responsividad General y Modal de Tarea (Jira Style) --- */
+.task-details-modal {
+  max-width: 900px !important;
+  width: 95vw !important;
+  max-height: 90vh !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-details-modal .modal-body {
+  flex: 1;
+  overflow-y: auto !important;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  padding: 20px;
+}
+
+.editor-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-height: 320px;
+}
+
+/* Media Query para pantallas medianas/pequeñas */
+@media (max-width: 992px) {
+  /* Apilar las columnas del modal de tareas */
+  .task-details-modal .modal-body {
+    grid-template-columns: 1fr !important;
+    gap: 20px;
+  }
+  
+  /* Reemplazar borde derecho por borde inferior en la columna de metadatos */
+  .task-details-modal .modal-body > div:first-child {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color);
+    padding-right: 0 !important;
+    padding-bottom: 20px;
+  }
+  
+  /* Apilar el editor split-screen de Markdown verticalmente */
+  .editor-split-grid {
+    grid-template-columns: 1fr !important;
+    min-height: auto;
+    gap: 12px;
+  }
+  
+  .editor-split-grid textarea,
+  .editor-split-grid #task-modal-desc-preview {
+    min-height: 200px !important;
+  }
+  
+  /* Responsividad del workspace header en notas y tareas */
+  .workspace-header {
+    height: auto !important;
+    padding: 12px 16px !important;
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 12px;
+  }
+  
+  .workspace-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  /* Asegurar que las opciones de filtrado y creación de tareas se ajusten bien */
+  #tasks-workspace-container .workspace-header > div:last-child {
+    flex-wrap: wrap;
+    gap: 12px !important;
+    width: 100%;
+  }
+}
+
 
