@@ -221,4 +221,4 @@ El instalable y ejecutable resultante se creará en el directorio:
 
 ### 📝 Licencia
 
-Este proyecto está bajo la licencia ISC. Creado originalmente por **Study Academy**.
+Este proyecto está bajo la licencia ISC. Creado originalmente por **CODEVS**.
