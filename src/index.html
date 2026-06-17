@@ -41,6 +41,23 @@
         </button>
       </div>
 
+      <!-- Pinned Task Widget -->
+      <div id="pinned-task-widget" class="pinned-task-widget hidden" style="margin: 12px 16px 0 16px; padding: 12px; border-radius: 10px; border: 1px solid var(--color-secondary); background: hsla(168, 80%, 48%, 0.05); box-shadow: 0 0 15px hsla(168, 80%, 48%, 0.1); display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 0.65rem; font-weight: 800; color: var(--color-secondary); letter-spacing: 0.1em; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
+            <span class="material-symbols-outlined" style="font-size: 0.95rem;">play_circle</span> Tarea Activa
+          </span>
+          <button class="btn-icon" id="btn-unpin-task" title="Desfijar tarea" style="padding: 2px;">
+            <span class="material-symbols-outlined" style="font-size: 0.9rem;">close</span>
+          </button>
+        </div>
+        <div id="pinned-task-title" style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title=""></div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+          <span id="pinned-task-project" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600;"></span>
+          <button class="btn-premium" id="btn-complete-pinned-task" style="padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; background: linear-gradient(135deg, var(--color-secondary), var(--color-primary));">Completar</button>
+        </div>
+      </div>
+
       <!-- Buscador -->
       <div class="search-box">
         <span class="material-symbols-outlined search-icon">search</span>
@@ -155,6 +172,9 @@
           <h2 style="font-size: 1.2rem; font-weight: 700;">Gestor de Tareas Centralizado</h2>
         </div>
         <div style="display: flex; gap: 16px; align-items: center;">
+          <button class="btn-premium" id="btn-new-task-trigger" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; gap: 4px;">
+            <span class="material-symbols-outlined" style="font-size: 1rem;">add_circle</span> Nueva Tarea
+          </button>
           <div style="display: flex; gap: 8px; align-items: center;">
             <label for="tasks-filter-project" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Filtrar:</label>
             <select id="tasks-filter-project" style="padding: 6px 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); outline: none; font-size: 0.85rem;">
@@ -168,28 +188,6 @@
           <div class="task-stats" id="task-stats-summary" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">
             Pendientes: 0 | Completadas: 0
           </div>
-        </div>
-      </div>
-
-      <!-- Añadir Tarea -->
-      <div class="task-creator-box glass-card" style="margin: 24px; padding: 20px;">
-        <h4 style="margin-bottom: 12px; font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; font-weight: 700;">Crear Nueva Tarea</h4>
-        <div class="task-input-row" style="display: flex; gap: 12px; align-items: center;">
-          <input type="text" id="task-title-input" placeholder="¿Qué hay que hacer?" style="flex: 2; padding: 10px 14px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); outline: none;">
-          
-          <select id="task-project-select" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); outline: none;">
-            <option value="">Nota Principal (Sin Proyecto)</option>
-          </select>
-          
-          <select id="task-priority-select" style="width: 120px; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); outline: none;">
-            <option value="low">Baja</option>
-            <option value="medium" selected>Media</option>
-            <option value="high">Alta</option>
-          </select>
-
-          <button class="btn-premium" id="btn-add-task">
-            <span class="material-symbols-outlined" style="font-size:1.1rem;">add</span> Agregar
-          </button>
         </div>
       </div>
 
@@ -509,6 +507,67 @@
         <div class="modal-footer">
           <button class="btn-premium btn-secondary" id="btn-cancel-repositories">Cerrar</button>
           <button class="btn-premium" id="btn-create-repo-submit">Crear Repositorio</button>
+        </div>
+      </div>
+    <!-- Modal de Edición/Creación de Tarea (Task Details/Create Modal) -->
+    <div class="modal-overlay hidden" id="task-modal-overlay" style="z-index: 100001; background: rgba(5, 8, 20, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+      <div class="settings-modal" style="max-width: 900px; width: 90vw;">
+        <div class="modal-header">
+          <h3 id="task-modal-header-title">Detalles de la Tarea</h3>
+          <button class="btn-icon" id="btn-close-task-modal">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="modal-body" style="display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 20px;">
+          <!-- Columna Izquierda: Metadatos -->
+          <div style="display: flex; flex-direction: column; gap: 16px; border-right: 1px solid var(--border-color); padding-right: 24px;">
+            <div class="setting-group">
+              <label for="task-modal-title">Título de la Tarea</label>
+              <input type="text" id="task-modal-title" placeholder="Ej. Subir archivos al servidor" style="width: 100%;">
+            </div>
+
+            <div class="setting-group">
+              <label for="task-modal-project">Proyecto</label>
+              <select id="task-modal-project" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.9rem; outline: none;">
+                <option value="">Nota Principal (Sin Proyecto)</option>
+              </select>
+            </div>
+
+            <div class="setting-group" style="display: flex; gap: 12px;">
+              <div class="setting-group" style="flex: 1; margin: 0;">
+                <label for="task-modal-priority">Prioridad</label>
+                <select id="task-modal-priority" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.9rem; outline: none;">
+                  <option value="low">Baja</option>
+                  <option value="medium">Media</option>
+                  <option value="high">Alta</option>
+                </select>
+              </div>
+              <div class="setting-group" style="flex: 1; margin: 0;">
+                <label for="task-modal-status">Estado</label>
+                <select id="task-modal-status" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.9rem; outline: none;">
+                  <!-- Se cargará dinámicamente -->
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Editor Markdown Split -->
+          <div style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
+            <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+              <span>Descripción (Markdown)</span>
+              <span style="font-size: 0.72rem; text-transform: none; font-weight: 500; color: var(--text-muted);">Editor a la izquierda | Vista Previa a la derecha</span>
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 320px;">
+              <textarea id="task-modal-desc" placeholder="Detalles en Markdown sobre esta tarea..." style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-family: var(--font-mono); font-size: 0.85rem; outline: none; resize: none;"></textarea>
+              <div id="task-modal-desc-preview" class="markdown-body" style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: hsla(222, 30%, 4%, 0.25); border: 1px solid var(--border-color); overflow-y: auto; font-size: 0.9rem; user-select: text;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-premium btn-secondary" id="btn-cancel-task-modal">Cancelar</button>
+          <button class="btn-premium" id="btn-save-task-modal">Guardar</button>
         </div>
       </div>
     </div>

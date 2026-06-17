@@ -1,5 +1,30 @@
 // NOTEAL: Lógica de la Interfaz (Proceso Renderer)
 
+window.addEventListener('error', (event) => {
+  const errorDetails = {
+    type: 'uncaught_exception',
+    message: event.message,
+    source: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    errorStack: event.error ? event.error.stack : 'No stack trace'
+  };
+  if (window.notealAPI && window.notealAPI.saveLocalFile) {
+    window.notealAPI.saveLocalFile({ filename: 'renderer_error_log.txt', data: JSON.stringify(errorDetails, null, 2) });
+  }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const errorDetails = {
+    type: 'unhandled_rejection',
+    message: event.reason ? event.reason.message : 'Unhandled promise rejection',
+    errorStack: event.reason ? event.reason.stack : 'No stack trace'
+  };
+  if (window.notealAPI && window.notealAPI.saveLocalFile) {
+    window.notealAPI.saveLocalFile({ filename: 'renderer_error_log.txt', data: JSON.stringify(errorDetails, null, 2) });
+  }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
   // --- Estado Global ---
   let appData = {
@@ -85,14 +110,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   const workspaceContainer = document.getElementById('workspace-container');
   const tasksWorkspaceContainer = document.getElementById('tasks-workspace-container');
 
-  // Task Creator & Filter Elements
-  const taskTitleInput = document.getElementById('task-title-input');
-  const taskProjectSelect = document.getElementById('task-project-select');
-  const taskPrioritySelect = document.getElementById('task-priority-select');
-  const btnAddTask = document.getElementById('btn-add-task');
+  // Task Filter & Trigger Elements
+  const btnNewTaskTrigger = document.getElementById('btn-new-task-trigger');
   const tasksFilterProject = document.getElementById('tasks-filter-project');
   const btnAddStatus = document.getElementById('btn-add-status');
   const tasksColumnsContainer = document.getElementById('tasks-columns-container');
+
+  // Elementos de Tarea Fija (Pinned Task)
+  const pinnedTaskWidget = document.getElementById('pinned-task-widget');
+  const pinnedTaskTitle = document.getElementById('pinned-task-title');
+  const pinnedTaskProject = document.getElementById('pinned-task-project');
+  const btnUnpinTask = document.getElementById('btn-unpin-task');
+  const btnCompletePinnedTask = document.getElementById('btn-complete-pinned-task');
+
+  // Elementos del Modal de Detalles de Tarea
+  const taskModalOverlay = document.getElementById('task-modal-overlay');
+  const btnCloseTaskModal = document.getElementById('btn-close-task-modal');
+  const btnCancelTaskModal = document.getElementById('btn-cancel-task-modal');
+  const btnSaveTaskModal = document.getElementById('btn-save-task-modal');
+  const taskModalTitle = document.getElementById('task-modal-title');
+  const taskModalDesc = document.getElementById('task-modal-desc');
+  const taskModalDescPreview = document.getElementById('task-modal-desc-preview');
+  const taskModalProject = document.getElementById('task-modal-project');
+  const taskModalPriority = document.getElementById('task-modal-priority');
+  const taskModalStatus = document.getElementById('task-modal-status');
+  
+  let editingTaskId = null; // ID de la tarea en edición
+  
 
   // --- Cambio de Pestañas (Notas / Tareas) ---
   tabNotes.addEventListener('click', () => {
@@ -553,6 +597,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       renderTree();
       updateStatusIndicators();
+      updatePinnedTaskWidget();
       if (currentTab === 'tasks') {
         renderTasks();
         populateProjectDropdown();
@@ -564,6 +609,71 @@ document.addEventListener('DOMContentLoaded', async () => {
       return false;
     }
   }
+
+  // Actualizar el Widget de la Tarea Fija en la barra lateral
+  function updatePinnedTaskWidget() {
+    if (!appData.tasks) {
+      appData.tasks = [];
+    }
+    const pinnedTask = appData.tasks.find(t => t.pinned === true);
+    if (pinnedTask) {
+      pinnedTaskTitle.textContent = pinnedTask.title;
+      pinnedTaskTitle.title = pinnedTask.title;
+      
+      let projName = 'Nota Principal';
+      if (pinnedTask.projectId) {
+        const proj = appData.projects.find(p => p.id === pinnedTask.projectId);
+        if (proj) {
+          projName = proj.name;
+        }
+      }
+      pinnedTaskProject.textContent = projName;
+      pinnedTaskWidget.classList.remove('hidden');
+    } else {
+      pinnedTaskWidget.classList.add('hidden');
+    }
+  }
+
+  // Eventos de Tarea Fija (Widget del Sidebar)
+  btnUnpinTask.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const pinnedTask = appData.tasks.find(t => t.pinned === true);
+    if (pinnedTask) {
+      pinnedTask.pinned = false;
+      await saveDataAndRender();
+      updatePinnedTaskWidget();
+      if (currentTab === 'tasks') {
+        renderTasks();
+      }
+    }
+  });
+
+  btnCompletePinnedTask.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const pinnedTask = appData.tasks.find(t => t.pinned === true);
+    if (pinnedTask) {
+      pinnedTask.pinned = false;
+      pinnedTask.completed = true;
+      
+      let statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+      if (pinnedTask.projectId) {
+        const proj = appData.projects.find(p => p.id === pinnedTask.projectId);
+        if (proj) {
+          if (!proj.statuses) {
+            proj.statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+          }
+          statuses = proj.statuses;
+        }
+      }
+      pinnedTask.status = statuses[statuses.length - 1];
+
+      await saveDataAndRender();
+      updatePinnedTaskWidget();
+      if (currentTab === 'tasks') {
+        renderTasks();
+      }
+    }
+  });
 
   // Renderizar árbol de proyectos y notas principales
   function renderTree() {
@@ -920,13 +1030,31 @@ document.addEventListener('DOMContentLoaded', async () => {
           const oldText = isChecked ? '- [ ]' : '- [x]';
           const newText = isChecked ? '- [x]' : '- [ ]';
           
-          let editorText = markdownEditor.value;
           const liText = li.textContent.trim();
+          const targetStr = oldText + ' ' + liText;
+          let editorText = markdownEditor.value;
+          const startIndex = editorText.indexOf(targetStr);
           
-          editorText = editorText.replace(oldText + ' ' + liText, newText + ' ' + liText);
-          markdownEditor.value = editorText;
-          saveActiveNoteChanges();
-          updatePreview();
+          if (startIndex !== -1) {
+            const originalStart = markdownEditor.selectionStart;
+            const originalEnd = markdownEditor.selectionEnd;
+            
+            markdownEditor.focus();
+            markdownEditor.setSelectionRange(startIndex, startIndex + targetStr.length);
+            document.execCommand('insertText', false, newText + ' ' + liText);
+            
+            // Restaurar selección original
+            markdownEditor.setSelectionRange(originalStart, originalEnd);
+            
+            saveActiveNoteChanges();
+            updatePreview();
+          } else {
+            // Fallback si no encuentra el texto exacto
+            editorText = editorText.replace(oldText + ' ' + liText, newText + ' ' + liText);
+            markdownEditor.value = editorText;
+            saveActiveNoteChanges();
+            updatePreview();
+          }
         });
       }
     });
@@ -1406,20 +1534,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function populateProjectDropdown() {
     const select = document.getElementById('task-project-select');
-    select.innerHTML = '<option value="">Nota Principal (Sin Proyecto)</option>';
+    if (select) {
+      select.innerHTML = '<option value="">Nota Principal (Sin Proyecto)</option>';
+    }
     
     const filterSelect = document.getElementById('tasks-filter-project');
     filterSelect.innerHTML = `
       <option value="all" ${activeTasksProjectFilter === 'all' ? 'selected' : ''}>Todos los proyectos</option>
       <option value="none" ${activeTasksProjectFilter === 'none' ? 'selected' : ''}>Sin Proyecto</option>
     `;
+
+    const modalSelect = document.getElementById('task-modal-project');
+    if (modalSelect) {
+      modalSelect.innerHTML = '<option value="">Nota Principal (Sin Proyecto)</option>';
+    }
     
     appData.projects.forEach(project => {
       // Para el creador de tareas
-      const option = document.createElement('option');
-      option.value = project.id;
-      option.textContent = project.name;
-      select.appendChild(option);
+      if (select) {
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = project.name;
+        select.appendChild(option);
+      }
+
+      // Para el modal de detalles
+      if (modalSelect) {
+        const modalOption = document.createElement('option');
+        modalOption.value = project.id;
+        modalOption.textContent = project.name;
+        modalSelect.appendChild(modalOption);
+      }
 
       // Para el filtro de tareas
       const filterOption = document.createElement('option');
@@ -1438,6 +1583,152 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnAddStatus.classList.add('hidden');
     }
   }
+
+  function updateModalStatusDropdown(projectId, selectedStatus) {
+    taskModalStatus.innerHTML = '';
+    let statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+    if (projectId) {
+      const proj = appData.projects.find(p => p.id === projectId);
+      if (proj) {
+        if (!proj.statuses) {
+          proj.statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+        }
+        statuses = proj.statuses;
+      }
+    }
+    statuses.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      if (s === selectedStatus) {
+        opt.selected = true;
+      }
+      taskModalStatus.appendChild(opt);
+    });
+  }
+
+  function openTaskCreateModal() {
+    editingTaskId = null;
+    document.getElementById('task-modal-header-title').textContent = 'Crear Nueva Tarea';
+    btnSaveTaskModal.textContent = 'Crear Tarea';
+    
+    taskModalTitle.value = '';
+    taskModalDesc.value = '';
+    taskModalDescPreview.innerHTML = '';
+    taskModalPriority.value = 'medium';
+    
+    let initialProjId = '';
+    if (activeTasksProjectFilter !== 'all' && activeTasksProjectFilter !== 'none') {
+      initialProjId = activeTasksProjectFilter;
+    }
+    taskModalProject.value = initialProjId;
+    
+    updateModalStatusDropdown(initialProjId, '');
+    
+    taskModalOverlay.classList.remove('hidden');
+  }
+
+  function openTaskModal(taskId) {
+    const task = appData.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    editingTaskId = taskId;
+    document.getElementById('task-modal-header-title').textContent = 'Detalles de la Tarea';
+    btnSaveTaskModal.textContent = 'Guardar Cambios';
+    
+    taskModalTitle.value = task.title;
+    taskModalDesc.value = task.description || '';
+    taskModalDescPreview.innerHTML = window.notealAPI.parseMarkdown(task.description || '');
+    taskModalPriority.value = task.priority || 'medium';
+    taskModalProject.value = task.projectId || '';
+    
+    updateModalStatusDropdown(task.projectId, task.status);
+    
+    taskModalOverlay.classList.remove('hidden');
+  }
+
+  // Eventos del modal de detalles de tarea
+  const closeTaskModal = () => {
+    taskModalOverlay.classList.add('hidden');
+    editingTaskId = null;
+  };
+
+  btnCloseTaskModal.addEventListener('click', closeTaskModal);
+  btnCancelTaskModal.addEventListener('click', closeTaskModal);
+
+  taskModalProject.addEventListener('change', () => {
+    updateModalStatusDropdown(taskModalProject.value, taskModalStatus.value);
+  });
+
+  taskModalDesc.addEventListener('input', () => {
+    taskModalDescPreview.innerHTML = window.notealAPI.parseMarkdown(taskModalDesc.value || '');
+  });
+
+  btnSaveTaskModal.addEventListener('click', async () => {
+    const title = taskModalTitle.value.trim();
+    if (!title) {
+      await showCustomAlert('Campo Requerido', 'Por favor ingrese el título de la tarea.', 'warning');
+      return;
+    }
+
+    const description = taskModalDesc.value.trim();
+    const projectId = taskModalProject.value || null;
+    const priority = taskModalPriority.value;
+    const status = taskModalStatus.value;
+    
+    // Obtener lista de estados válidos del proyecto para computar si está completada
+    let statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+    if (projectId) {
+      const proj = appData.projects.find(p => p.id === projectId);
+      if (proj) {
+        if (!proj.statuses) {
+          proj.statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+        }
+        statuses = proj.statuses;
+      }
+    }
+    
+    const completed = (status === statuses[statuses.length - 1]);
+
+    if (editingTaskId) {
+      // Modo Edición
+      const task = appData.tasks.find(t => t.id === editingTaskId);
+      if (task) {
+        task.title = title;
+        task.description = description;
+        task.projectId = projectId;
+        task.priority = priority;
+        task.status = status;
+        task.completed = completed;
+        if (task.completed) {
+          task.pinned = false;
+        }
+      }
+    } else {
+      // Modo Creación
+      const newTask = {
+        id: 'task_' + Date.now(),
+        title,
+        description,
+        projectId,
+        priority,
+        status: status || statuses[0],
+        completed,
+        pinned: false,
+        createdAt: new Date().toLocaleDateString()
+      };
+      if (!appData.tasks) {
+        appData.tasks = [];
+      }
+      appData.tasks.push(newTask);
+    }
+
+    await saveDataAndRender();
+    renderTasks();
+    updatePinnedTaskWidget();
+    taskModalOverlay.classList.add('hidden');
+    editingTaskId = null;
+  });
 
   function renderTasks() {
     tasksColumnsContainer.innerHTML = '';
@@ -1616,16 +1907,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusOptionsHtml += `<option value="${escapeHTML(s)}" ${displayStatus === s ? 'selected' : ''}>${escapeHTML(s)}</option>`;
       });
       
+      const pinColor = task.pinned ? 'var(--color-secondary)' : 'var(--text-muted)';
+      const pinTitle = task.pinned ? 'Desfijar Tarea' : 'Fijar Tarea';
+      const descHtml = task.description 
+        ? `<div class="task-desc-teaser" style="margin-top: 4px; margin-bottom: 2px;">${escapeHTML(task.description)}</div>` 
+        : '';
+
       taskCard.innerHTML = `
         <div class="task-header">
           <div class="task-title-group">
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
             <span class="task-title">${escapeHTML(task.title)}</span>
           </div>
-          <button class="btn-icon btn-delete-task" style="color: var(--color-danger); opacity: 0.8;" title="Eliminar Tarea">
-            <span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span>
-          </button>
+          <div class="task-actions-group" style="display: flex; gap: 4px; align-items: center;">
+            <button class="btn-icon btn-pin-task" style="color: ${pinColor}; opacity: 0.8; padding: 4px;" title="${pinTitle}">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">push_pin</span>
+            </button>
+            <button class="btn-icon btn-edit-task" style="color: var(--color-primary); opacity: 0.8; padding: 4px;" title="Editar Detalles">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">edit</span>
+            </button>
+            <button class="btn-icon btn-delete-task" style="color: var(--color-danger); opacity: 0.8; padding: 4px;" title="Eliminar Tarea">
+              <span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span>
+            </button>
+          </div>
         </div>
+        ${descHtml}
         <div class="task-meta" style="margin-top: 6px;">
           <span class="task-priority-badge ${priorityClass}">${priorityLabel}</span>
           ${projectBadgeHtml}
@@ -1644,27 +1950,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         task.completed = checkbox.checked;
         if (task.completed) {
           task.status = statuses[statuses.length - 1];
+          task.pinned = false;
         } else {
           task.status = statuses[0];
         }
         await saveDataAndRender();
         renderTasks();
+        updatePinnedTaskWidget();
       });
       
       const statusSelect = taskCard.querySelector('.task-status-select');
       statusSelect.addEventListener('change', async () => {
         task.status = statusSelect.value;
         task.completed = (task.status === statuses[statuses.length - 1]);
+        if (task.completed) {
+          task.pinned = false;
+        }
         await saveDataAndRender();
         renderTasks();
+        updatePinnedTaskWidget();
+      });
+
+      const btnPin = taskCard.querySelector('.btn-pin-task');
+      btnPin.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (task.completed) {
+          await showCustomAlert('Acción no permitida', 'No se puede fijar una tarea completada.', 'warning');
+          return;
+        }
+        const isPinned = !task.pinned;
+        appData.tasks.forEach(t => { t.pinned = false; });
+        task.pinned = isPinned;
+        await saveDataAndRender();
+        renderTasks();
+        updatePinnedTaskWidget();
+      });
+
+      const btnEdit = taskCard.querySelector('.btn-edit-task');
+      btnEdit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskModal(task.id);
       });
       
       const btnDelete = taskCard.querySelector('.btn-delete-task');
       btnDelete.addEventListener('click', async () => {
         if (await showCustomConfirm('Eliminar Tarea', `¿Desea eliminar la tarea "${task.title}"?`, 'delete')) {
+          const wasPinned = task.pinned;
           appData.tasks = appData.tasks.filter(t => t.id !== task.id);
           await saveDataAndRender();
           renderTasks();
+          if (wasPinned) {
+            updatePinnedTaskWidget();
+          }
         }
       });
       
@@ -1737,51 +2074,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  btnAddTask.addEventListener('click', async () => {
-    const title = taskTitleInput.value.trim();
-    if (!title) {
-      await showCustomAlert('Campo Requerido', 'Por favor ingrese el título de la tarea.', 'warning');
-      return;
-    }
-    
-    let initialStatus = 'Tareas pendientes';
-    const selectedProjId = taskProjectSelect.value;
-    if (selectedProjId) {
-      const proj = appData.projects.find(p => p.id === selectedProjId);
-      if (proj) {
-        if (!proj.statuses) {
-          proj.statuses = ["Tareas pendientes", "Realizando", "Completadas"];
-        }
-        initialStatus = proj.statuses[0];
-      }
-    }
-    
-    const newTask = {
-      id: 'task_' + Date.now(),
-      title,
-      projectId: selectedProjId,
-      priority: taskPrioritySelect.value,
-      completed: false,
-      status: initialStatus,
-      createdAt: new Date().toLocaleDateString()
-    };
-    
-    if (!appData.tasks) {
-      appData.tasks = [];
-    }
-    
-    appData.tasks.push(newTask);
-    await saveDataAndRender();
-    
-    taskTitleInput.value = '';
-    renderTasks();
-  });
-
-  taskTitleInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      btnAddTask.click();
-    }
-  });
+  btnNewTaskTrigger.addEventListener('click', openTaskCreateModal);
 
   // --- Lógica de la Barra de Herramientas Markdown ---
   document.querySelectorAll('.btn-toolbar').forEach(btn => {
@@ -1793,22 +2086,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       const end = markdownEditor.selectionEnd;
       const text = markdownEditor.value;
       
-      const before = text.substring(0, start);
-      const after = text.substring(end, text.length);
-      
-      // Formatear saltos de línea para elementos de bloque (título, tabla, bloque de código, listas)
       let insertion = template;
-      const isBlock = template.startsWith('#') || template.startsWith('-') || template.startsWith('|') || template.startsWith('```');
-      if (isBlock && start > 0 && text[start - 1] !== '\n') {
-        insertion = '\n' + template;
+      if (start !== end) {
+        const selectedText = text.substring(start, end);
+        insertion = template
+          .replace("Texto", selectedText)
+          .replace("Título", selectedText)
+          .replace("Subtítulo", selectedText)
+          .replace("Tarea pendiente", selectedText)
+          .replace("// Código aquí", selectedText);
       }
       
-      markdownEditor.value = before + insertion + after;
+      // Formatear saltos de línea para elementos de bloque (título, tabla, bloque de código, listas)
+      const isBlock = template.startsWith('#') || template.startsWith('-') || template.startsWith('|') || template.startsWith('```');
+      if (isBlock && start > 0 && text[start - 1] !== '\n') {
+        insertion = '\n' + insertion;
+      }
       
-      // Poner foco y restablecer cursor después de la inserción
+      // Insertar texto preservando el historial de Deshacer (Ctrl+Z) en el textarea
       markdownEditor.focus();
-      const newCursorPos = start + insertion.length;
-      markdownEditor.setSelectionRange(newCursorPos, newCursorPos);
+      document.execCommand('insertText', false, insertion);
       
       saveActiveNoteChanges();
       updatePreview();
