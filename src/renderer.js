@@ -10,7 +10,7 @@ window.addEventListener('error', (event) => {
     errorStack: event.error ? event.error.stack : 'No stack trace'
   };
   if (window.notealAPI && window.notealAPI.saveLocalFile) {
-    window.notealAPI.saveLocalFile({ filename: 'renderer_error_log.txt', data: JSON.stringify(errorDetails, null, 2) });
+    window.notealAPI.saveLocalFile('renderer_error_log.txt', JSON.stringify(errorDetails, null, 2));
   }
 });
 
@@ -21,7 +21,7 @@ window.addEventListener('unhandledrejection', (event) => {
     errorStack: event.reason ? event.reason.stack : 'No stack trace'
   };
   if (window.notealAPI && window.notealAPI.saveLocalFile) {
-    window.notealAPI.saveLocalFile({ filename: 'renderer_error_log.txt', data: JSON.stringify(errorDetails, null, 2) });
+    window.notealAPI.saveLocalFile('renderer_error_log.txt', JSON.stringify(errorDetails, null, 2));
   }
 });
 
@@ -134,6 +134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const taskModalProject = document.getElementById('task-modal-project');
   const taskModalPriority = document.getElementById('task-modal-priority');
   const taskModalStatus = document.getElementById('task-modal-status');
+  const btnCloseTaskModalView = document.getElementById('btn-close-task-modal-view');
+  const btnEditTaskModalView = document.getElementById('btn-edit-task-modal-view');
   
   let editingTaskId = null; // ID de la tarea en edición
   
@@ -365,6 +367,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         await window.StorageEngine.saveData(appData, activePassword);
         renderTree();
+      }
+    });
+  }
+
+  // Escuchar actualizaciones de tareas desde ventanas flotantes popout
+  if (window.notealAPI.onTaskUpdated) {
+    window.notealAPI.onTaskUpdated(async (updatedTask) => {
+      if (appData.tasks) {
+        const task = appData.tasks.find(t => t.id === updatedTask.id);
+        if (task) {
+          task.title = updatedTask.title;
+          task.description = updatedTask.content;
+          task.status = updatedTask.status;
+          
+          // Calcular si la tarea está completada según sus fases
+          let statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+          if (task.projectId) {
+            const proj = appData.projects.find(p => p.id === task.projectId);
+            if (proj) {
+              if (!proj.statuses) {
+                proj.statuses = ["Tareas pendientes", "Realizando", "Completadas"];
+              }
+              statuses = proj.statuses;
+            }
+          }
+          task.completed = (task.status === statuses[statuses.length - 1]);
+          if (task.completed) {
+            task.pinned = false;
+          }
+          
+          await window.StorageEngine.saveData(appData, activePassword);
+          if (currentTab === 'tasks') {
+            renderTasks();
+          }
+          updatePinnedTaskWidget();
+        }
       }
     });
   }
@@ -635,6 +673,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Eventos de Tarea Fija (Widget del Sidebar)
+  pinnedTaskWidget.addEventListener('click', async (e) => {
+    if (e.target.closest('#btn-unpin-task') || e.target.closest('#btn-complete-pinned-task')) {
+      return;
+    }
+    const pinnedTask = appData.tasks.find(t => t.pinned === true);
+    if (pinnedTask) {
+      let taskStatuses = ["Tareas pendientes", "Realizando", "Completadas"];
+      if (pinnedTask.projectId) {
+        const proj = appData.projects.find(p => p.id === pinnedTask.projectId);
+        if (proj && proj.statuses) {
+          taskStatuses = proj.statuses;
+        }
+      }
+      await window.notealAPI.popoutNote({
+        id: pinnedTask.id,
+        projectId: pinnedTask.projectId,
+        title: pinnedTask.title,
+        content: pinnedTask.description || '',
+        isTask: true,
+        status: pinnedTask.status,
+        statuses: taskStatuses
+      });
+    }
+  });
+
   btnUnpinTask.addEventListener('click', async (e) => {
     e.stopPropagation();
     const pinnedTask = appData.tasks.find(t => t.pinned === true);
@@ -1607,6 +1670,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function setTaskModalMode(mode) {
+    const viewFields = document.querySelectorAll('.task-view-field');
+    const editFields = document.querySelectorAll('.task-edit-field');
+    
+    if (mode === 'view') {
+      viewFields.forEach(el => el.classList.remove('hidden'));
+      editFields.forEach(el => el.classList.add('hidden'));
+    } else {
+      viewFields.forEach(el => el.classList.add('hidden'));
+      editFields.forEach(el => el.classList.remove('hidden'));
+    }
+  }
+
   function openTaskCreateModal() {
     editingTaskId = null;
     document.getElementById('task-modal-header-title').textContent = 'Crear Nueva Tarea';
@@ -1625,6 +1701,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     updateModalStatusDropdown(initialProjId, '');
     
+    setTaskModalMode('edit');
     taskModalOverlay.classList.remove('hidden');
   }
 
@@ -1636,14 +1713,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('task-modal-header-title').textContent = 'Detalles de la Tarea';
     btnSaveTaskModal.textContent = 'Guardar Cambios';
     
+    // Rellenar campos de edición
     taskModalTitle.value = task.title;
     taskModalDesc.value = task.description || '';
     taskModalDescPreview.innerHTML = window.notealAPI.parseMarkdown(task.description || '');
     taskModalPriority.value = task.priority || 'medium';
     taskModalProject.value = task.projectId || '';
-    
     updateModalStatusDropdown(task.projectId, task.status);
     
+    // Rellenar campos de vista (Jira Style)
+    document.getElementById('task-modal-title-view').textContent = task.title;
+    
+    const descView = document.getElementById('task-modal-desc-view');
+    if (task.description && task.description.trim()) {
+      descView.innerHTML = window.notealAPI.parseMarkdown(task.description);
+    } else {
+      descView.innerHTML = '<p style="color: var(--text-muted); font-style: italic;">Sin descripción disponible.</p>';
+    }
+    
+    let projName = 'Nota Principal (Sin Proyecto)';
+    if (task.projectId) {
+      const proj = appData.projects.find(p => p.id === task.projectId);
+      if (proj) {
+        projName = proj.name;
+      }
+    }
+    document.getElementById('task-modal-project-view').textContent = projName;
+    
+    const priorityView = document.getElementById('task-modal-priority-view');
+    priorityView.className = `task-priority-badge priority-${task.priority}`;
+    priorityView.textContent = task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja';
+    
+    let statusIcon = 'pending_actions';
+    const lowerStatus = (task.status || '').toLowerCase();
+    if (lowerStatus.includes('completada') || lowerStatus.includes('hecho') || lowerStatus.includes('done')) {
+      statusIcon = 'task_alt';
+    } else if (lowerStatus.includes('realizando') || lowerStatus.includes('progreso') || lowerStatus.includes('doing')) {
+      statusIcon = 'play_circle';
+    }
+    document.getElementById('task-modal-status-view').innerHTML = `<span class="material-symbols-outlined" style="font-size: 1.1rem;">${statusIcon}</span> ${escapeHTML(task.status || 'Tareas pendientes')}`;
+    document.getElementById('task-modal-date-view').textContent = task.createdAt || new Date().toLocaleDateString();
+    
+    setTaskModalMode('view');
     taskModalOverlay.classList.remove('hidden');
   }
 
@@ -1654,7 +1765,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   btnCloseTaskModal.addEventListener('click', closeTaskModal);
-  btnCancelTaskModal.addEventListener('click', closeTaskModal);
+  btnCloseTaskModalView.addEventListener('click', closeTaskModal);
+  
+  btnCancelTaskModal.addEventListener('click', () => {
+    if (editingTaskId) {
+      setTaskModalMode('view');
+    } else {
+      closeTaskModal();
+    }
+  });
+  
+  btnEditTaskModalView.addEventListener('click', () => {
+    setTaskModalMode('edit');
+  });
 
   taskModalProject.addEventListener('change', () => {
     updateModalStatusDropdown(taskModalProject.value, taskModalStatus.value);
@@ -1704,6 +1827,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           task.pinned = false;
         }
       }
+      
+      // Tras guardar, volvemos a mostrar la vista detallada actualizada
+      openTaskModal(editingTaskId);
     } else {
       // Modo Creación
       const newTask = {
@@ -1721,13 +1847,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         appData.tasks = [];
       }
       appData.tasks.push(newTask);
+      
+      taskModalOverlay.classList.add('hidden');
+      editingTaskId = null;
     }
 
     await saveDataAndRender();
     renderTasks();
     updatePinnedTaskWidget();
-    taskModalOverlay.classList.add('hidden');
-    editingTaskId = null;
   });
 
   function renderTasks() {
@@ -1909,14 +2036,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       const pinColor = task.pinned ? 'var(--color-secondary)' : 'var(--text-muted)';
       const pinTitle = task.pinned ? 'Desfijar Tarea' : 'Fijar Tarea';
-      const descHtml = task.description 
-        ? `<div class="task-desc-teaser" style="margin-top: 4px; margin-bottom: 2px;">${escapeHTML(task.description)}</div>` 
+      
+      const teaserText = getCleanTextTeaser(task.description);
+      const descHtml = teaserText 
+        ? `<div class="task-desc-teaser" style="margin-top: 4px; margin-bottom: 2px;">${escapeHTML(teaserText)}</div>` 
         : '';
 
       taskCard.innerHTML = `
         <div class="task-header">
           <div class="task-title-group">
-            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
             <span class="task-title">${escapeHTML(task.title)}</span>
           </div>
           <div class="task-actions-group" style="display: flex; gap: 4px; align-items: center;">
@@ -1945,21 +2073,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `;
       
-      const checkbox = taskCard.querySelector('.task-checkbox');
-      checkbox.addEventListener('change', async () => {
-        task.completed = checkbox.checked;
-        if (task.completed) {
-          task.status = statuses[statuses.length - 1];
-          task.pinned = false;
-        } else {
-          task.status = statuses[0];
-        }
-        await saveDataAndRender();
-        renderTasks();
-        updatePinnedTaskWidget();
-      });
-      
       const statusSelect = taskCard.querySelector('.task-status-select');
+      statusSelect.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
       statusSelect.addEventListener('change', async () => {
         task.status = statusSelect.value;
         task.completed = (task.status === statuses[statuses.length - 1]);
@@ -1984,6 +2101,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         await saveDataAndRender();
         renderTasks();
         updatePinnedTaskWidget();
+
+        if (isPinned) {
+          let taskStatuses = ["Tareas pendientes", "Realizando", "Completadas"];
+          if (task.projectId) {
+            const proj = appData.projects.find(p => p.id === task.projectId);
+            if (proj && proj.statuses) {
+              taskStatuses = proj.statuses;
+            }
+          }
+          await window.notealAPI.popoutNote({
+            id: task.id,
+            projectId: task.projectId,
+            title: task.title,
+            content: task.description || '',
+            isTask: true,
+            status: task.status,
+            statuses: taskStatuses
+          });
+        }
       });
 
       const btnEdit = taskCard.querySelector('.btn-edit-task');
@@ -1993,7 +2129,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       
       const btnDelete = taskCard.querySelector('.btn-delete-task');
-      btnDelete.addEventListener('click', async () => {
+      btnDelete.addEventListener('click', async (e) => {
+        e.stopPropagation();
         if (await showCustomConfirm('Eliminar Tarea', `¿Desea eliminar la tarea "${task.title}"?`, 'delete')) {
           const wasPinned = task.pinned;
           appData.tasks = appData.tasks.filter(t => t.id !== task.id);
@@ -2003,6 +2140,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             updatePinnedTaskWidget();
           }
         }
+      });
+
+      taskCard.addEventListener('click', () => {
+        openTaskModal(task.id);
       });
       
       const container = listContainers[displayStatus];
@@ -2111,4 +2252,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       updatePreview();
     });
   });
+
+  function getCleanTextTeaser(markdownText) {
+    if (!markdownText) return '';
+    try {
+      const html = window.notealAPI.parseMarkdown(markdownText);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const plain = doc.body.textContent || '';
+      const trimmed = plain.replace(/\s+/g, ' ').trim();
+      if (trimmed.length > 80) {
+        return trimmed.substring(0, 80) + '...';
+      }
+      return trimmed;
+    } catch (e) {
+      const clean = markdownText.replace(/[#*`_\[\]()\-]/g, '').replace(/\s+/g, ' ').trim();
+      if (clean.length > 80) {
+        return clean.substring(0, 80) + '...';
+      }
+      return clean;
+    }
+  }
 });

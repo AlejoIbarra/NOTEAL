@@ -123,6 +123,8 @@
     <div style="flex: 1; display: flex; align-items: center; margin-right: 12px; overflow: hidden;">
       <span class="popout-title" id="popout-title">Nota Flotante</span>
       <input type="text" id="popout-title-input" class="hidden" style="background: none; border: none; border-bottom: 1px solid var(--color-accent); color: var(--text-main); font-family: inherit; font-size: 0.95rem; font-weight: 700; outline: none; width: 100%; -webkit-app-region: no-drag; padding: 2px 0;">
+      <span id="popout-status-badge" class="hidden" style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--color-secondary); font-weight: 600; margin-left: 8px; white-space: nowrap;"></span>
+      <select id="popout-status-select" class="hidden" style="padding: 2px 6px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.75rem; outline: none; margin-left: 8px; -webkit-app-region: no-drag; cursor: pointer; white-space: nowrap; max-width: 150px;"></select>
     </div>
     <div class="popout-actions">
       <button class="btn-pin-action" id="btn-edit" title="Editar Nota">
@@ -162,14 +164,38 @@
         const hash = window.location.hash.substring(1);
         if (hash) {
           noteData = JSON.parse(decodeURIComponent(hash));
-          popoutTitle.textContent = noteData.title || 'Nota Flotante';
+          popoutTitle.textContent = noteData.title || (noteData.isTask ? 'Tarea Flotante' : 'Nota Flotante');
           popoutTitleInput.value = noteData.title || '';
           popoutEditor.value = noteData.content || '';
+          
+          if (noteData.isTask) {
+            const popoutStatusBadge = document.getElementById('popout-status-badge');
+            const popoutStatusSelect = document.getElementById('popout-status-select');
+            popoutStatusBadge.classList.remove('hidden');
+            popoutStatusBadge.textContent = noteData.status || '';
+            
+            if (noteData.statuses && Array.isArray(noteData.statuses)) {
+              popoutStatusSelect.innerHTML = '';
+              noteData.statuses.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s;
+                if (s === noteData.status) {
+                  opt.selected = true;
+                }
+                popoutStatusSelect.appendChild(opt);
+              });
+            }
+            btnEdit.title = "Editar Tarea";
+          } else {
+            btnEdit.title = "Editar Nota";
+          }
+          
           renderMarkdown();
         }
       } catch (e) {
-        console.error('Error cargando nota flotante:', e);
-        popoutContent.innerHTML = '<p style="color: var(--color-danger)">Error al cargar el contenido de la nota.</p>';
+        console.error('Error cargando nota/tarea flotante:', e);
+        popoutContent.innerHTML = '<p style="color: var(--color-danger)">Error al cargar el contenido de la ventana flotante.</p>';
       }
 
       function renderMarkdown() {
@@ -191,6 +217,11 @@
           popoutTitle.classList.add('hidden');
           popoutTitleInput.classList.remove('hidden');
           
+          if (noteData.isTask) {
+            document.getElementById('popout-status-badge').classList.add('hidden');
+            document.getElementById('popout-status-select').classList.remove('hidden');
+          }
+          
           popoutTitleInput.value = noteData.title || '';
           popoutEditor.value = noteData.content || '';
           popoutEditor.focus();
@@ -200,10 +231,19 @@
           btnEdit.title = "Guardar Cambios";
         } else {
           // Salir de modo edición y guardar
-          noteData.title = popoutTitleInput.value.trim() || 'Nota sin título';
+          noteData.title = popoutTitleInput.value.trim() || (noteData.isTask ? 'Tarea sin título' : 'Nota sin título');
           noteData.content = popoutEditor.value;
           
           popoutTitle.textContent = noteData.title;
+          
+          if (noteData.isTask) {
+            noteData.status = document.getElementById('popout-status-select').value;
+            const popoutStatusBadge = document.getElementById('popout-status-badge');
+            popoutStatusBadge.textContent = noteData.status;
+            popoutStatusBadge.classList.remove('hidden');
+            document.getElementById('popout-status-select').classList.add('hidden');
+          }
+          
           renderMarkdown();
           
           popoutEditor.classList.add('hidden');
@@ -213,11 +253,19 @@
           
           btnEdit.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.15rem;">edit</span>';
           btnEdit.classList.remove('active');
-          btnEdit.title = "Editar Nota";
+          btnEdit.title = noteData.isTask ? "Editar Tarea" : "Editar Nota";
 
           // Notificar actualización al proceso principal para sincronizar
-          if (window.notealAPI && window.notealAPI.updateNote && noteData.id) {
-            window.notealAPI.updateNote(noteData);
+          if (window.notealAPI) {
+            if (noteData.isTask) {
+              if (window.notealAPI.updateTask) {
+                window.notealAPI.updateTask(noteData);
+              }
+            } else {
+              if (window.notealAPI.updateNote && noteData.id) {
+                window.notealAPI.updateNote(noteData);
+              }
+            }
           }
         }
       });

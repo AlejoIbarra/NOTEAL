@@ -42,7 +42,7 @@
       </div>
 
       <!-- Pinned Task Widget -->
-      <div id="pinned-task-widget" class="pinned-task-widget hidden" style="margin: 12px 16px 0 16px; padding: 12px; border-radius: 10px; border: 1px solid var(--color-secondary); background: hsla(168, 80%, 48%, 0.05); box-shadow: 0 0 15px hsla(168, 80%, 48%, 0.1); display: flex; flex-direction: column; gap: 8px;">
+      <div id="pinned-task-widget" class="pinned-task-widget hidden" style="margin: 12px 16px 0 16px; padding: 12px; border-radius: 10px; border: 1px solid var(--color-secondary); background: hsla(168, 80%, 48%, 0.05); box-shadow: 0 0 15px hsla(168, 80%, 48%, 0.1); display: flex; flex-direction: column; gap: 8px; cursor: pointer;">
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <span style="font-size: 0.65rem; font-weight: 800; color: var(--color-secondary); letter-spacing: 0.1em; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
             <span class="material-symbols-outlined" style="font-size: 0.95rem;">play_circle</span> Tarea Activa
@@ -509,6 +509,7 @@
           <button class="btn-premium" id="btn-create-repo-submit">Crear Repositorio</button>
         </div>
       </div>
+    </div>
     <!-- Modal de Edición/Creación de Tarea (Task Details/Create Modal) -->
     <div class="modal-overlay hidden" id="task-modal-overlay" style="z-index: 100001; background: rgba(5, 8, 20, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
       <div class="settings-modal" style="max-width: 900px; width: 90vw;">
@@ -521,20 +522,22 @@
 
         <div class="modal-body" style="display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 20px;">
           <!-- Columna Izquierda: Metadatos -->
-          <div style="display: flex; flex-direction: column; gap: 16px; border-right: 1px solid var(--border-color); padding-right: 24px;">
-            <div class="setting-group">
+          <div style="display: flex; flex-direction: column; gap: 20px; border-right: 1px solid var(--border-color); padding-right: 24px;">
+            
+            <!-- Modo Edición: Campos de Metadatos -->
+            <div class="task-edit-field setting-group">
               <label for="task-modal-title">Título de la Tarea</label>
               <input type="text" id="task-modal-title" placeholder="Ej. Subir archivos al servidor" style="width: 100%;">
             </div>
 
-            <div class="setting-group">
+            <div class="task-edit-field setting-group">
               <label for="task-modal-project">Proyecto</label>
               <select id="task-modal-project" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.9rem; outline: none;">
                 <option value="">Nota Principal (Sin Proyecto)</option>
               </select>
             </div>
 
-            <div class="setting-group" style="display: flex; gap: 12px;">
+            <div class="task-edit-field setting-group" style="display: flex; gap: 12px;">
               <div class="setting-group" style="flex: 1; margin: 0;">
                 <label for="task-modal-priority">Prioridad</label>
                 <select id="task-modal-priority" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.9rem; outline: none;">
@@ -550,24 +553,69 @@
                 </select>
               </div>
             </div>
+
+            <!-- Modo Vista: Detalles Estilizados (Jira Side Panel) -->
+            <div class="task-view-field" style="display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Proyecto</span>
+                <span id="task-modal-project-view" style="font-size: 0.9rem; font-weight: 600; color: var(--text-main); padding: 6px 12px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border-color); display: inline-block;"></span>
+              </div>
+              
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Prioridad</span>
+                <span id="task-modal-priority-view" class="task-priority-badge" style="font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700;"></span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Estado / Fase</span>
+                <span id="task-modal-status-view" style="font-size: 0.85rem; font-weight: 700; color: var(--color-secondary); padding: 6px 12px; border-radius: 6px; background: hsla(168, 80%, 48%, 0.1); border: 1px solid var(--color-secondary); display: inline-flex; align-items: center; gap: 6px;"></span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Creada el</span>
+                <span id="task-modal-date-view" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;"></span>
+              </div>
+            </div>
+
           </div>
 
-          <!-- Columna Derecha: Editor Markdown Split -->
-          <div style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
-            <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
-              <span>Descripción (Markdown)</span>
-              <span style="font-size: 0.72rem; text-transform: none; font-weight: 500; color: var(--text-muted);">Editor a la izquierda | Vista Previa a la derecha</span>
-            </label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 320px;">
-              <textarea id="task-modal-desc" placeholder="Detalles en Markdown sobre esta tarea..." style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-family: var(--font-mono); font-size: 0.85rem; outline: none; resize: none;"></textarea>
-              <div id="task-modal-desc-preview" class="markdown-body" style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: hsla(222, 30%, 4%, 0.25); border: 1px solid var(--border-color); overflow-y: auto; font-size: 0.9rem; user-select: text;"></div>
+          <!-- Columna Derecha: Contenido de la Tarea -->
+          <div style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+            
+            <!-- Modo Vista: Título y Descripción Estilizada -->
+            <div id="task-modal-view-panel" class="task-view-field" style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+              <h2 id="task-modal-title-view" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin: 0; line-height: 1.3;"></h2>
+              <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 280px;">
+                <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Descripción</span>
+                <div id="task-modal-desc-view" class="markdown-body" style="flex: 1; padding: 16px; border-radius: 8px; background: hsla(222, 30%, 4%, 0.3); border: 1px solid var(--border-color); overflow-y: auto; min-height: 280px; max-height: 380px; user-select: text;"></div>
+              </div>
             </div>
+
+            <!-- Modo Edición: Editor Markdown Split -->
+            <div id="task-modal-edit-panel" class="task-edit-field" style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
+              <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+                <span>Descripción (Markdown)</span>
+                <span style="font-size: 0.72rem; text-transform: none; font-weight: 500; color: var(--text-muted);">Editor a la izquierda | Vista Previa a la derecha</span>
+              </label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 320px;">
+                <textarea id="task-modal-desc" placeholder="Detalles en Markdown sobre esta tarea..." style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font-family: var(--font-mono); font-size: 0.85rem; outline: none; resize: none;"></textarea>
+                <div id="task-modal-desc-preview" class="markdown-body" style="height: 100%; min-height: 280px; padding: 12px; border-radius: 8px; background: hsla(222, 30%, 4%, 0.25); border: 1px solid var(--border-color); overflow-y: auto; font-size: 0.9rem; user-select: text;"></div>
+              </div>
+            </div>
+
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn-premium btn-secondary" id="btn-cancel-task-modal">Cancelar</button>
-          <button class="btn-premium" id="btn-save-task-modal">Guardar</button>
+          <!-- Botones Modo Vista -->
+          <button class="btn-premium btn-secondary task-view-field" id="btn-close-task-modal-view">Cerrar</button>
+          <button class="btn-premium task-view-field" id="btn-edit-task-modal-view">
+            <span class="material-symbols-outlined" style="font-size: 1.1rem;">edit</span> Editar Tarea
+          </button>
+          
+          <!-- Botones Modo Edición -->
+          <button class="btn-premium btn-secondary task-edit-field" id="btn-cancel-task-modal">Cancelar</button>
+          <button class="btn-premium task-edit-field" id="btn-save-task-modal">Guardar</button>
         </div>
       </div>
     </div>

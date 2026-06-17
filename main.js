@@ -291,4 +291,10 @@ ipcMain.on('update-note', (event, note) => {
   }
 });
 
+ipcMain.on('update-task', (event, task) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('task-updated-broadcast', task);
+  }
+});
+
 

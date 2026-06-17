@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('notealAPI', {
   postgresSaveData: (config, data) => ipcRenderer.invoke('postgres-save-data', { config, data }),
   updateNote: (note) => ipcRenderer.send('update-note', note),
   onNoteUpdated: (callback) => ipcRenderer.on('note-updated-broadcast', (event, note) => callback(note)),
+  updateTask: (task) => ipcRenderer.send('update-task', task),
+  onTaskUpdated: (callback) => ipcRenderer.on('task-updated-broadcast', (event, task) => callback(task)),
   
   // Utilidades Criptográficas (Cifrado AES de notas y Hashing SHA256)
   encryptText: (text, key) => {
